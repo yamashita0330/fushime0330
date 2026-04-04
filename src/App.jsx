@@ -113,7 +113,6 @@ class SupabaseClient {
   }
 }
 
-// Supabase 固定設定
 const SB_URL_FIXED = "https://vcqfgkypsljgpxhsnfxv.supabase.co";
 const SB_KEY_FIXED = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2Y3hienN4dmJvZWFwaW9pbHNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODgxMDgsImV4cCI6MjA5MDg2NDEwOH0.JI-dNBXwu2JxZZ1BvqOhwiTnwtDmfn6iQzEcN9LiZM4";
 
