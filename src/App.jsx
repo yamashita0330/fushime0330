@@ -116,29 +116,46 @@ class SupabaseClient {
 const SB_URL_FIXED = "https://dvcxbzsxvboeapioilsg.supabase.co";
 const SB_KEY_FIXED = "sb_publishable_f6ckuJu79d_keYUMZdmVlw_f3-L3qrs";
 
-const SB_URL_KEY = "sb_url";
-const SB_KEY_KEY = "sb_key";
-const LOCAL_KEY  = "salon_suite_customers";
-
-async function loadSbConfig() {
+// ═══ ストレージ（Supabase） ═══
+async function saveCustomers(customers) {
   try {
-    const [u, k] = await Promise.all([
-      window.storage.get(SB_URL_KEY, true),
-      window.storage.get(SB_KEY_KEY, true),
-    ]);
-    return { url: u?.value||"", key: k?.value||"" };
-  } catch { return { url:"", key:"" }; }
+    const sb = await getSupabase();
+    for (const c of customers) {
+      await sb.from("customers").upsert({
+        id: c.id, name: c.name, phone: c.phone,
+        member_no: c.memberNo, join_date: c.joinDate,
+        avatar: c.avatar, counseling: c.counseling
+      });
+      for (const r of c.timeline) {
+        await sb.from("records").upsert({
+          id: r.id, customer_id: c.id, date: r.date, time: r.time,
+          type: r.type, staff: r.staff, title: r.title,
+          detail: r.detail || {}, memo: r.memo || "", images: r.images || []
+        });
+      }
+    }
+  } catch(e) { console.error("save error", e); }
 }
-async function saveSbConfig(url, key) {
-  await window.storage.set(SB_URL_KEY, url, true);
-  await window.storage.set(SB_KEY_KEY, key, true);
-}
-async function saveLocalCustomers(customers) {
-  try { await window.storage.set(LOCAL_KEY, JSON.stringify(customers), true); } catch {}
-}
-async function loadLocalCustomers() {
-  try { const r = await window.storage.get(LOCAL_KEY, true); if(r?.value) return JSON.parse(r.value); } catch {}
-  return null;
+
+async function loadCustomers() {
+  try {
+    const sb = await getSupabase();
+    const { data: customers, error } = await sb
+      .from("customers")
+      .select("*, records(*)");
+    if (error) throw error;
+    if (!customers || customers.length === 0) return null;
+    return customers.map(c => ({
+      id: c.id, name: c.name, phone: c.phone,
+      memberNo: c.member_no, joinDate: c.join_date,
+      avatar: c.avatar, counseling: c.counseling,
+      timeline: (c.records || []).sort((a,b) => b.date.localeCompare(a.date)).map(r => ({
+        id: r.id, date: r.date, time: r.time, type: r.type,
+        staff: r.staff, title: r.title, detail: r.detail || {},
+        memo: r.memo || "", images: r.images || []
+      }))
+    }));
+  } catch(e) { console.error("load error", e); return null; }
 }
 
 // ═══ 共通CSS ═══
@@ -189,7 +206,7 @@ function TextInput({ defaultValue="", onCommit, placeholder, type="text", classN
 }
 
 // ═══ Supabase設定モーダル ═══
-function SupabaseSettingsModal({ onClose, onSave, currentUrl="", currentKey="" }) {
+function SupabaseSettingsModal_UNUSED({ onClose, onSave, currentUrl="", currentKey="" }) {
   const [url, setUrl] = useState(currentUrl);
   const [key, setKey] = useState(currentKey);
   const [testing, setTesting] = useState(false);
@@ -1026,9 +1043,14 @@ export default function App() {
       joinDate:td(), avatar:data.lastName[0],
       counseling:{...data,isNew:true}, timeline:[],
     };
-    if(sbClient) {
-      try { await sbClient.upsertCustomer(newCustomer); } catch(e) { console.error(e); }
-    }
+    try {
+      const sb = await getSupabase();
+      await sb.from("customers").upsert({
+        id: newCustomer.id, name: newCustomer.name, phone: newCustomer.phone,
+        member_no: newCustomer.memberNo, join_date: newCustomer.joinDate,
+        avatar: newCustomer.avatar, counseling: newCustomer.counseling
+      });
+    } catch(e) { console.error(e); }
     setCustomers(prev=>[newCustomer,...prev]);
     setSubmittedData(data); setView("complete");
   };
@@ -1072,13 +1094,8 @@ export default function App() {
         customers={customers} setCustomers={setCustomers}
         onOpenForm={()=>setView("form")} existingCustomers={customers}
         saveStatus={saveStatus} sbConfig={sbConfig}
-        onOpenSbSettings={()=>setShowSbSettings(true)}
+        onOpenSbSettings={()=>{}}
       />
-      {showSbSettings&&<SupabaseSettingsModal
-        onClose={()=>setShowSbSettings(false)}
-        onSave={handleSbSave}
-        currentUrl={sbConfig.url} currentKey={sbConfig.key}
-      />}
     </>
   );
 }
